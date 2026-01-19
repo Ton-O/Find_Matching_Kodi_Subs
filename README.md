@@ -34,6 +34,9 @@ The automatic download from OpenSubtitles site works only if you:
 
 * The first stages (renaming existing files) works always, provided you have the following  
 * Have a naming structure for "video-files" like this <TV-Show> <SaaEbb (or SaaXbb) wher aa = Season and bb = Episode). Not required, but obviously handy is to end the "video-file" name with the release group.
+Tip: Use a product like Sonarr, that will keep an eye on the TVShows you're interested in, adds them to a download manager and generates video-files with the correct naming structure fopr this script.
+In Sonarr, Settings, Media Management, just use this as standard format:
+__{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Release Group}__ 
 
 ## How do I use this script?
 As it's a shell script (Bash, actually), you have to execute the script in some way. 

@@ -29,6 +29,7 @@ The automatic download from OpenSubtitles site works only if you:
 *   IP-address (or hostname) of the mysql-server
 *   database-name (at the moment, MyVideos131)
 *   Userid and password assigned to the connectin that KODI has with mysql (kodi and kodi most of the time).
+*   The variables need to be placed in a .my.conf file (the script expects thje file to be in the home fol,der of the user (file with chmod 600).
 * have registered as a user on Opensubtitles.com (or via Opensubtitles.org). 
 
 * The first stages (renaming existing files) works always, provided you have the following  
@@ -40,8 +41,9 @@ The easiest way is to execute the following command from a command-line of a Lin
 bash ./Find_Subtitles_For_KODI.sh < DEBUG | TRACE>  <directory containing TVShow name> (season and epsiodes may be placed in subdirectories, the scxript will traverse down into all subdirectories).
 <DEBUG | TRACE> is optional and only specified while debugging. 
 Normlly, I just go to the directory that I want subtitles to be searched for, then execute this: ash ./Find_Subtitles_For_KODI.sh $(pwd) This just passes the current directory as the first argument.
+If you receive and error that you can not execute the script, please make sure the "x-privilege" is set to the file: (sudo) chmod ygo+x Find_Subtitles_For_KODI.sh
 
 # Any guarantees on this script? 
 The one who spends the money, is the one who decides on wrong or right;-)
-Seriously, this is a script that I created for my own benefit, if others want to use it, that's fine. I do not give formal support or guaranty the proper working, but am willing to look into issues that are reported on this github. Please note: I;m doing this in my own spare time, so no expectations.   
+Seriously, this is a script that I created for my own benefit, if others want to use it, that's fine. I do not give formal support or guaranty the proper working, but am willing to look into issues that are reported on this github. Please note: I'm working on this in my own spare time, so no expectations.   
 

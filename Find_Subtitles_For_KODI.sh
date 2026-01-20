@@ -160,6 +160,7 @@ function Main {
                     4) echo "$Output_Rec    ==> Srt renamed" ;;
                     8) echo "$Output_Rec    ========> Search OpenSubtitles for SRT but not found" ;;
                     9) echo "$Output_Rec    ========> No SRT found and cannot access OpenSubtitles (no OpenSubtitlesUser or OpenSubtitlesPasswd given)" ;;
+                    10) echo "$Output_Rec    ========> SRT found, but download from OpenSubitles failed; retry this download later" ;;
                     16) echo "$Output_Rec    => No subtitle available already and KODI doesn't recognise path $TV_Show as a TV-show" ;;
                     *) echo "$Output_Rec    ==========> Error occurred" ;;
                 esac
@@ -406,8 +407,7 @@ function DownloadSubtitle {
                 return 2                            # signal subtitle was downloaded, but no exact match
             fi
         else
-            echo "Download (wget) failed..."
-            return 8
+            return 10
         fi 
     else
         echo "******************** Could not get download-url from OpenSubtitles $Result"

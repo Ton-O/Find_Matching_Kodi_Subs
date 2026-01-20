@@ -40,11 +40,16 @@ __{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Release Group}__
 
 ## How do I use this script?
 As it's a shell script (Bash, actually), you have to execute the script in some way. 
-The easiest way is to execute the following command from a command-line of a Linux system:
-bash ./Find_Subtitles_For_KODI.sh < DEBUG | TRACE>  <directory containing TVShow name> (season and epsiodes may be placed in subdirectories, the scxript will traverse down into all subdirectories).
-<DEBUG | TRACE> is optional and only specified while debugging. 
 Normlly, I just go to the directory that I want subtitles to be searched for, then execute this: ash ./Find_Subtitles_For_KODI.sh $(pwd) This just passes the current directory as the first argument.
 If you receive and error that you can not execute the script, please make sure the "x-privilege" is set to the file: (sudo) chmod ygo+x Find_Subtitles_For_KODI.sh
+
+The easiest way is to execute the following command from a command-line of a Linux system:
+* If you have no KODI mysql database or no OpenSubtitles credentiala: 
+*   bash ./Find_Subtitles_For_KODI.sh < DEBUG | TRACE>  <directory containing TVShow name> (season and epsiodes may be placed in subdirectories, the script will traverse down into all subdirectories).
+
+*   If you have a KODI mysql database and OpenSubtitles credentials, you need to have a ~/.my.conf with db-settings and 2 environment variables set.
+*   OpenSubtitlesUser=JohnDoe OpenSubtitlesPasswd=JaneDoe bash ~/Documents/FindSubs\ V1.2.sh "$(pwd)" will provide credentials and start the script.
+<DEBUG | TRACE> is optional and only specified while debugging. 
 
 # Any guarantees on this script? 
 The one who spends the money, is the one who decides on wrong or right;-)

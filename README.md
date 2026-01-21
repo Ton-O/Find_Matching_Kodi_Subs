@@ -38,18 +38,30 @@ Tip: Use a product like Sonarr, that will keep an eye on the TVShows you're inte
 In Sonarr, Settings, Media Management, just use this as standard format:
 __{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Release Group}__ 
 
+## Requirements
+* Linux (or similar like MacOs).
+* Bash version 4 or higher
+
 ## How do I use this script?
 As it's a shell script (Bash, actually), you have to execute the script in some way. 
 Normlly, I just go to the directory that I want subtitles to be searched for, then execute this: ash ./Find_Subtitles_For_KODI.sh $(pwd) This just passes the current directory as the first argument.
 If you receive and error that you can not execute the script, please make sure the "x-privilege" is set to the file: (sudo) chmod ygo+x Find_Subtitles_For_KODI.sh
 
 The easiest way is to execute the following command from a command-line of a Linux system:
-* If you have no KODI mysql database or no OpenSubtitles credentiala: 
+* If you have no KODI mysql database or no OpenSubtitles credentials: 
 *   bash ./Find_Subtitles_For_KODI.sh < DEBUG | TRACE>  <directory containing TVShow name> (season and epsiodes may be placed in subdirectories, the script will traverse down into all subdirectories).
 
 *   If you have a KODI mysql database and OpenSubtitles credentials, you need to have a ~/.my.conf with db-settings and 2 environment variables set.
-*   OpenSubtitlesUser=JohnDoe OpenSubtitlesPasswd=JaneDoe bash ~/Documents/FindSubs\ V1.2.sh "$(pwd)" will provide credentials and start the script.
+*   The this command works: __OpenSubtitlesUser=JohnDoe OpenSubtitlesPasswd=JaneDoe bash ~/Documents/FindSubs\ V1.2.sh "$(pwd)"__ will provide credentials and start the script.
+
+*   OR you can pass the OpenSubtitles user&password as keywords in the parameters passed to the script,  like this:
+*   bash ~/Documents/FindSubs\ V1.2.sh "$(pwd)" OpenSubtitlesUser=JohnDoe OpenSubtitlesPasswd=JaneDoe.
+The order in which the parameters are passed isn't critical as long as the directory-name is the last parameter
+
 <DEBUG | TRACE> is optional and only specified while debugging. 
+
+## My personal use
+As I'm running most of my development jobs on my Macbook, I like the ability in finder to go to a TVShow-directory, and from there use the quick action to invoke the Shell script. This has a few consequences, but I'll not going into them here.
 
 # Any guarantees on this script? 
 The one who spends the money, is the one who decides on wrong or right;-)

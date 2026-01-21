@@ -4,12 +4,15 @@ global_DEBUG=
 global_TRACE=
 
 # --- Configuration ---
-global_SRT_Patrh="/Volumes/Subtitles"                       # HARD coded path where subtitles are (and will be) stored
+global_SRT_Path="/Volumes/Subtitles"                       # HARD coded path where subtitles are (and will be) stored
 global_Video_Extensions="webm mkv flv vob ogv ogg rrc gifv mng mov avi qt wmv yuv rm asf amv mp4 m4p mpg mp2 mpeg mpe mpv m4v svi 3gp 3g2 mxf roq nsv flv f4v f4p f4a f4b mod"
 global_API_Key="qo2wQs1PXwIHJsXvIiWXu1ZbVjaboPh6"          # The AP{I-kjey for Opensubtitles API}
 global_User_Agent="MijnApp v1.0"                           # OpenSubtitles requires a User-Agent
 global_Authentication_Done=""                                        # start with non-authenticated Opensubtitles
+global_OpenSubtitlesUser=
+global_OpenSubtitlesPasswd=
 global_Season_Info=
+global_mysql_command=mysql
 
 global_Season=
 global_Episode=
@@ -18,13 +21,28 @@ global_File_ID=
 global_Auth_Token=
 global_OpenSubtitles_Base_URL=
 global_found_Release=
+global_InputParm=
+global_TVShow_TMDB_ID=
+global_TVShow_TMDB_ID_Found=""
+
+global_Error_Okay="Okay"
+global_Error_Exact="exact match downloaded"
+global_Error_Non_specific="=> Non-specific release group SRT"
+global_Error_Renamed="==> Srt renamed"
+global_Error_Searched_in_OS_Not_found="========> Search OpenSubtitles for SRT but not found"
+global_Error_Nofound_no_OS="========> No SRT found and cannot access OpenSubtitles (no global_OpenSubtitlesUser or OpenSubtitlesPasswd given)"
+global_Error_DownloadFail="========> SRT found, but download from OpenSubitles failed; retry this download later"
+global_Error_Nofound_NoKODI_NR=16
+global_Error_Nofound_NoKODI="=> No subtitle available already and KODI doesn't recognise path $TV_Show as a TV-show"
 
 if [ "$1" == "TRACE" ]; then
+    echo "<><><><> TRACE Starting PGM"
     global_TRACE="TRUE"
     global_DEBUG="TRUE"
     shift
 else
-    if [ "$1" == "global_DEBUG" ]; then
+    if [ "$1" == "DEBUG" ]; then
+    echo "<><><><> DEBUG Starting PGM"
         global_TRACE=
         global_DEBUG="TRUE"
         shift
@@ -43,7 +61,7 @@ get_srt() {
     local episode="$3"
     local target_name="$4"
     
-    local target_srt="${global_SRT_Patrh}/${target_name}.srt"
+    local target_srt="${global_SRT_Path}/${target_name}.srt"
     
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG get_srt"
@@ -53,7 +71,8 @@ get_srt() {
     if [ -f "$target_srt" ]; then
         return 0 # SrtAlreadyExists
     fi
-    
+
+
     # Find all SRT files containing the name of the TV  show
     # Use 'find' with case-insensitive search
 
@@ -61,7 +80,7 @@ get_srt() {
         if [ -n "$global_DEBUG" ]; then
             echo "<><><><> global_DEBUG Loading cache with all local SRT-files that match the showname"
         fi  
-        Cached_SRT_files=$(find "$global_SRT_Patrh" -maxdepth 1 -iname "*${tv_show}*.srt")
+        Cached_SRT_files=$(find "$global_SRT_Path" -maxdepth 1 -iname "*${tv_show}*.srt")
     fi
 
     while IFS= read -r srt_file; do
@@ -77,7 +96,7 @@ get_srt() {
             read s_srt e_srt <<< "$global_Season_Info"
             if [ "$s_srt" == "$season" ] && [ "$e_srt" == "$episode" ]; then
                 if [ -n "$global_TRACE" ]; then
-                echo "<><><><> global_TRACE match, mv it"
+                    echo "<><><><> global_TRACE match, mv it"
                 fi
                 # Gevonden! Hernoemen
                 mv "$srt_file" "$target_srt"
@@ -85,7 +104,6 @@ get_srt() {
             fi
         fi
     done <<< "$Cached_SRT_files"
-    
     return 8 # SrtNotFound
 }
 
@@ -106,8 +124,7 @@ function Main {
     local File_Path
     local Is_Video
     local Low_Extension
-
-    Target_Dir="${1:-/Volumes/Media/Videos/Unforgotten/}"
+    Target_Dir="${global_InputParm:-/Volumes/Media/Videos/Unforgotten/}"
 
     if [ ! -d "$Target_Dir" ]; then
         echo "Fout: Map niet gevonden: $Target_Dir"
@@ -141,9 +158,11 @@ function Main {
             find_season_info "$Filename"            
             if [ -n "$global_Season_Info" ]; then
                 read global_Season global_Episode <<< "$global_Season_Info"
+
                 Output_Rec="$TV_Show - Episode S${global_Season}E${global_Episode}"
                 get_srt "$TV_Show" "$global_Season" "$global_Episode" "$Filename_No_Ext"
                 Result=$?
+
                 if [ "$Result" == "8" ]; then   # No subtitle found
                     if [ "$OpenSubtitlesAuth" == "true" ]; then 
                         MissingSubtitle "$TV_Show" "$global_Season" "$global_Episode" "$Filename_No_Ext"
@@ -154,14 +173,14 @@ function Main {
                 fi
 
                 case $Result in
-                    0) echo "$Output_Rec    Okay" ;;
-                    1) echo "$Output_Rec    exact match downloaded; $OpenSubtitlesRemaining remaining downloads" ;;
-                    2) echo "$Output_Rec    => Non-specific release group SRT (${global_found_Release})downloaded; $OpenSubtitlesRemaining remaining downloads" ;;
-                    4) echo "$Output_Rec    ==> Srt renamed" ;;
-                    8) echo "$Output_Rec    ========> Search OpenSubtitles for SRT but not found" ;;
-                    9) echo "$Output_Rec    ========> No SRT found and cannot access OpenSubtitles (no OpenSubtitlesUser or OpenSubtitlesPasswd given)" ;;
-                    10) echo "$Output_Rec    ========> SRT found, but download from OpenSubitles failed; retry this download later" ;;
-                    16) echo "$Output_Rec    => No subtitle available already and KODI doesn't recognise path $TV_Show as a TV-show" ;;
+                    0) echo "$Output_Rec    $global_Error_Okay";;
+                    1) echo "$Output_Rec    $global_Error_Exact; $OpenSubtitlesRemaining remaining downloads";;
+                    2) echo "$Output_Rec    $global_Error_Non_specific (${global_found_Release}) downloaded; $OpenSubtitlesRemaining remaining downloads";;
+                    4) echo "$Output_Rec    $global_Error_Renamed";;
+                    8) echo "$Output_Rec    $global_Error_Searched_in_OS_Not_found";;
+                    9) echo "$Output_Rec    $global_Error_Nofound_no_OS";;
+                    10) echo "$Output_Rec    $global_Error_DownloadFail";;
+                    16) echo "$Output_Rec    $global_Error_Nofound_NoKODI";;
                     *) echo "$Output_Rec    ==========> Error occurred" ;;
                 esac
             else
@@ -183,13 +202,28 @@ function MissingSubtitle {
     fi    
     TVShowName=$(echo "$TV_Show" |tr '[:upper:]' '[:lower:]')
     TVShowMaskedName=$(echo "$TVShowName" | sed 's/[^[:alnum:]]/+/g' )
- 
-    GetTVSHOWINF_From_KodiDB "$TVShowMaskedName" "$TVShowName"
-    Result=$?
-    if [ "$Result" != "0" ]; then
-        return "$Result"
+    if [ -z "$global_TVShow_TMDB_ID_Found" ]; then                              # An empty global_TVShow_TMDB_ID_Found will only occur the first time we're here; use to initialize 
+        my_mysql_command=$(whereis $global_mysql_command)                       # if called by others, $PATH may not be filled by .bashrc file; guess where mysql is
+        if [ "$my_mysql_command" == "mysql:" ]; then
+            global_mysql_command="/usr/local/opt/mysql-client/bin/mysql "
+        fi
+        GetTVSHOWINF_From_KodiDB "$TVShowMaskedName" "$TVShowName"
+        Result=$?
+        if [ "$Result" != "0" ]; then
+            global_TVShow_TMDB_ID_Found="FALSE";
+            return "$Result"
+        else
+            global_TVShow_TMDB_ID_Found="TRUE";
+        fi
+        global_TVShow_TMDB_ID_Found="TRUE";
     fi
-    DoOpenSubtitles "$TV_Show" "$TVShowMaskedName" "$global_Season" "$global_Episode" "$Filename_No_Ext"
+    if [  "$global_TVShow_TMDB_ID_Found" == "TRUE" ]; then
+        DoOpenSubtitles "$TV_Show" "$TVShowMaskedName" "$global_Season" "$global_Episode" "$Filename_No_Ext"
+        return $?
+    else
+        return $global_Error_Nofound_NoKODI_NR
+    fi
+
 }
 
 function find_season_info() {
@@ -210,27 +244,36 @@ function find_season_info() {
 
 function GetTVSHOWINF_From_KodiDB() {
     local TVShow="$2"
-#    local DB_HOST="192.168.73.24"  # these DB-values are now placed in ~/.my.conf
-#    local DB_USER="kodi"
-#    local DB_PASS="kodi"
-#    local DB_NAME="MyVideos131"
+    local RC
+    local DB_HOST="192.168.73.24"  # these DB-values are now placed in ~/.my.conf
+    local DB_USER="kodi"
+    local DB_PASS="kodi"
+    local DB_NAME="MyVideos131"
     local JSON_String
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB"
+        echo "<><><><> global_DEBUG" $global_mysql_command -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" --connect-timeout=15 "$DB_NAME" -N -s -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;"
     fi  
 
-    # IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $(mysql --defaults-file=~/.my.conf -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" -N -s -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
-    IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $(mysql --defaults-file=~/.my.conf -N -s -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
+    IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $($global_mysql_command --defaults-file=~/.my.conf -N -s -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
     if [ $? -ne 0 ]; then
         echo "Error connecting to the database."
         exit 4
     fi
 
     JSON_String=$(echo "$SHOW_DESC" | sed -e 's/<episodeguide>//g' -e 's/<\/episodeguide>//g')
-    TVDB=$(echo "$JSON_String" | jq -r '.tvdb')
-    IMDB=$(echo "$JSON_String" | jq -r '.imdb')
-    TMDB=$(echo "$JSON_String" | jq -r '.tmdb')
-    if [ -z "$TMDB" ]; then
+    #TVDB=$(echo "$JSON_String" | jq -r '.tvdb')
+    #IMDB=$(echo "$JSON_String" | jq -r '.imdb')
+    global_TVShow_TMDB_ID=$(echo "$JSON_String" | jq -r '.tmdb')
+
+
+if [ -n "$global_DEBUG" ]; then
+        echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB  Result KODI-sql: $JSON_String"
+        echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB  TMDB is now: $global_TVShow_TMDB_ID"
+    fi
+
+
+    if [ -z "$global_TVShow_TMDB_ID" ]; then
         return 16
     fi
     return 0
@@ -262,7 +305,7 @@ function Get_AUTH_Token {
         echo "<><><><> global_DEBUG Get_AUTH_Token"
     fi  
 
-    Result=$(curl -s -X POST "https://api.opensubtitles.com/api/v1/login" -H "Accept: application/json" -H "Api-Key: $global_API_Key" -H "Content-Type: application/json" -H "User-Agent: ${global_User_Agent}" -d '{"username": "'"$OpenSubtitlesUser"'", "password": "'"$OpenSubtitlesPasswd"'"}')
+    Result=$(curl -s -X POST "https://api.opensubtitles.com/api/v1/login" -H "Accept: application/json" -H "Api-Key: $global_API_Key" -H "Content-Type: application/json" -H "User-Agent: ${global_User_Agent}" -d '{"username": "'"$global_OpenSubtitlesUser"'", "password": "'"$global_OpenSubtitlesPasswd"'"}')
     Status=$(echo "$Result" | jq -r '.status'  2>/dev/null)
     if [ $? -ne 0 ]; then
         echo "======================>   Unknown error when authenticating via OpenSubtitles API: $Result   <======================"
@@ -303,10 +346,10 @@ function SearchOpenSubtitles() {
     global_File_ID=-1
     Searching_Release="${Filename##*[-_. ]}" 
 
-    OpenSubtitles=$(curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=nl&machine_translated=include&parent_tmdb_id=${TMDB}&season_number=${global_Season}")
+    OpenSubtitles=$(curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=nl&machine_translated=include&parent_tmdb_id=${global_TVShow_TMDB_ID}&season_number=${global_Season}")
 
     if [ -n "$global_DEBUG" ]; then
-        echo "<><><><> global_DEBUG SearchOpenSubtitles:" curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=nl&machine_translated=include&parent_tmdb_id=${TMDB}&season_number=${global_Season}"
+        echo "<><><><> global_DEBUG SearchOpenSubtitles:" curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=nl&machine_translated=include&parent_tmdb_id=${global_TVShow_TMDB_ID}&season_number=${global_Season}"
         echo "<><><><> global_DEBUG SearchOpenSubtitles curl done: $OpenSubtitles"
     fi      
 
@@ -321,7 +364,9 @@ function SearchOpenSubtitles() {
         if [ -n "$global_TRACE" ]; then
             echo "<><><><> global_TRACE SearchOpenSubtitles ${OpenSubtitles_Release,,}" = "${Searching_Release,,}" 
         fi
-        if [ "${OpenSubtitles_Release,,}" = "${Searching_Release,,}" ]; then
+        OpenSubtitles_Release=$(echo "$OpenSubtitles_Release" | tr '[:upper:]' '[:lower:]')
+        Searching_Release=$(echo "$Searching_Release" | tr '[:upper:]' '[:lower:]')
+        if [ "${OpenSubtitles_Release}" = "${Searching_Release}" ]; then
             Found_Filename="$Read_Filename"
             global_File_ID="$Read_File_ID"
             Matched=true
@@ -392,15 +437,15 @@ function DownloadSubtitle {
     fi       
 
     if [[ -n "$SubtitleDownloadURL" ]]; then
-        Result=$(wget -q "${SubtitleDownloadURL}" -O "${global_SRT_Patrh}/${Filename_No_Ext}.srt")
+        Result=$(wget -q "${SubtitleDownloadURL}" -O "${global_SRT_Path}/${Filename_No_Ext}.srt")
         RC=$?
         if [ -n "$global_DEBUG" ]; then
             echo "<><><><> global_DEBUG DownloadSubtitle wget done Result: $Result"
-            echo "<><><><> DEBUGwget -q \"${SubtitleDownloadURL}\" -O \"${global_SRT_Patrh}/${Filename_No_Ext}.srt\""
+            echo "<><><><> DEBUGwget -q \"${SubtitleDownloadURL}\" -O \"${global_SRT_Path}/${Filename_No_Ext}.srt\""
         fi           
         if [ "$RC" == "0" ]; then
-            $(touch "${global_SRT_Patrh}/${Filename_No_Ext}.srt")
-            #echo "Downloaded $SubtitleDownloadfile_name and saved as ${global_SRT_Patrh}/${Filename_No_Ext}.srt"
+            $(touch "${global_SRT_Path}/${Filename_No_Ext}.srt")
+            #echo "Downloaded $SubtitleDownloadfile_name and saved as ${global_SRT_Path}/${Filename_No_Ext}.srt"
             if [ "$Matched" == "true" ]; then
                 return 1                            # signal Exact match was downloaded
             else
@@ -415,11 +460,45 @@ function DownloadSubtitle {
         return 8
     fi
 }
+
 function CheckEnvironmentSetup {
+
+
     if [ -n "$global_DEBUG" ]; then
-        echo "<><><><> global_DEBUG CheckEnvironmentSetup"
+        echo "<><><><> global_DEBUG CheckEnvironmentSetup $@"
     fi  
-    if [[ "$OpenSubtitlesUser" == ""  || "$OpenSubtitlesPasswd" == "" ]]; then
+
+    global_InputParm=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            OpenSubtitlesUser=*)
+                global_OpenSubtitlesUser="${1#*=}"
+                shift
+                ;;
+            OpenSubtitlesPasswd=*)
+                global_OpenSubtitlesPasswd="${1#*=}"
+                shift
+                ;;
+            DEBUG=*)
+                # Check of de waarde true is
+                [[ "${1#*=}" == "true" ]] && global_DEBUG=="TRUE"
+                shift
+                ;;
+            TRACE=*)
+                [[ "${1#*=}" == "true" ]] && global_TRACE=="TRUE"
+                shift
+                ;;
+            *)
+                # a value that is unknown in this case, will automatically be used as the directoryname cintaining our TVShow.
+                global_InputParm="$*"
+                # Break loop
+                break
+                ;;
+        esac
+    done
+
+    if [[ "$global_OpenSubtitlesUser" == ""  || "$global_OpenSubtitlesPasswd" == "" ]]; then
         echo "======================>   Missing Environment variables OpenSubtitlesUser and OpenSubtitlesPasswd   <======================"
         OpenSubtitlesAuth="false"
     else
@@ -433,10 +512,12 @@ function CheckEnvironmentSetup {
 } 
 
 #    Now start calling these functions a.k.a. the program 
-
 if [ -n "$global_DEBUG" ]; then
-    echo "<><><><> global_DEBUG Starting PGM with $1"
+    echo "<><><><> global_DEBUG Calling CheckEnvironmentSetup $@"
 fi  
-CheckEnvironmentSetup
-Main "$1"   # execute main loop
+CheckEnvironmentSetup $@
+if [ -n "$global_DEBUG" ]; then
+    echo "<><><><> global_DEBUG Calling Main $@"
+fi  
+Main    # execute main loop
 

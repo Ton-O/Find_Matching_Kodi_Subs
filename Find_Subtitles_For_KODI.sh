@@ -22,15 +22,23 @@ global_Auth_Token=
 global_OpenSubtitles_Base_URL=
 global_found_Release=
 global_InputParm=
+global_TVShowName=
 global_TVShow_TMDB_ID=
 global_TVShow_TMDB_ID_Found=""
 
+global_Error_Okay_nr=0
 global_Error_Okay="Okay"
+global_Error_Exact_nr=1
 global_Error_Exact="exact match downloaded"
+global_Error_Non_specific_nr=2
 global_Error_Non_specific="=> Non-specific release group SRT"
+global_Error_Renamed_nr=4
 global_Error_Renamed="==> Srt renamed"
+global_Error_Searched_in_OS_Not_found_nr=8
 global_Error_Searched_in_OS_Not_found="========> Search OpenSubtitles for SRT but not found"
+global_Error_Nofound_no_OS_nr=9
 global_Error_Nofound_no_OS="========> No SRT found and cannot access OpenSubtitles (no global_OpenSubtitlesUser or OpenSubtitlesPasswd given)"
+global_Error_DownloadFail_nr=10 
 global_Error_DownloadFail="========> SRT found, but download from OpenSubitles failed; retry this download later"
 global_Error_Nofound_NoKODI_NR=16
 global_Error_Nofound_NoKODI="=> No subtitle available already and KODI doesn't recognise path $TV_Show as a TV-show"
@@ -69,7 +77,7 @@ get_srt() {
 
     # Check if SRT already exists
     if [ -f "$target_srt" ]; then
-        return 0 # SrtAlreadyExists
+        return $global_Error_Okay_nr # SrtAlreadyExists
     fi
 
 
@@ -79,6 +87,7 @@ get_srt() {
     if [ -z "$Cached_SRT_files" ]; then
         if [ -n "$global_DEBUG" ]; then
             echo "<><><><> global_DEBUG Loading cache with all local SRT-files that match the showname"
+            echo "<><><><> global_DEBUG find $global_SRT_Path -maxdepth 1 -iname *${tv_show}*.srt" 
         fi  
         Cached_SRT_files=$(find "$global_SRT_Path" -maxdepth 1 -iname "*${tv_show}*.srt")
     fi
@@ -100,11 +109,11 @@ get_srt() {
                 fi
                 # Gevonden! Hernoemen
                 mv "$srt_file" "$target_srt"
-                return 4 # SrtMoved
+                return $global_Error_Renamed_nr # SrtMoved
             fi
         fi
     done <<< "$Cached_SRT_files"
-    return 8 # SrtNotFound
+    return $global_Error_Searched_in_OS_Not_found_nr # SrtNotFound
 }
 
 function Main {
@@ -131,13 +140,18 @@ function Main {
         exit 1
     fi
 
-    echo "Processing $Target_Dir"
+    echo "Processing $Target_Dir for TVShow $global_TVShowName"
 
-    # Get the name of the TV SHow from th map name
+    # Get the name of the TV SHow from the map name = removed; done now in its own function
     Stripped_Path="${Target_Dir%/}"
-    TV_Show=$(basename "$Stripped_Path")
-    #TV_SHOW_Masked=$(replace_non_alnum "$TV_Show")
-    Cached_SRT_files=""                                                              # empty temporary cache of SRT-files as we have a new directory. 
+    TV_Show=$global_TVShowName
+    #TV_Show=$(basename "$Stripped_Path")
+    Cached_SRT_files=""                                  # empty temporary cache of SRT-files as we have a new directory. 
+
+
+    if [ -n "$global_DEBUG" ]; then
+        echo "<><><><> global_DEBUG Main; find all srt with find $Target_Dir -type f "
+    fi    
 
     # find all files in directory
     find "$Target_Dir" -type f | while read -r File_Path; do
@@ -163,24 +177,24 @@ function Main {
                 get_srt "$TV_Show" "$global_Season" "$global_Episode" "$Filename_No_Ext"
                 Result=$?
 
-                if [ "$Result" == "8" ]; then   # No subtitle found
+                if [ "$Result" == "$global_Error_Searched_in_OS_Not_found_nr" ]; then   # No subtitle found
                     if [ "$OpenSubtitlesAuth" == "true" ]; then 
                         MissingSubtitle "$TV_Show" "$global_Season" "$global_Episode" "$Filename_No_Ext"
                     Result=$?
                     else
-                        Result=9
+                        Result=$global_Error_Nofound_no_OS_nr
                     fi
                 fi
 
                 case $Result in
-                    0) echo "$Output_Rec    $global_Error_Okay";;
-                    1) echo "$Output_Rec    $global_Error_Exact; $OpenSubtitlesRemaining remaining downloads";;
-                    2) echo "$Output_Rec    $global_Error_Non_specific (${global_found_Release}) downloaded; $OpenSubtitlesRemaining remaining downloads";;
-                    4) echo "$Output_Rec    $global_Error_Renamed";;
-                    8) echo "$Output_Rec    $global_Error_Searched_in_OS_Not_found";;
-                    9) echo "$Output_Rec    $global_Error_Nofound_no_OS";;
-                    10) echo "$Output_Rec    $global_Error_DownloadFail";;
-                    16) echo "$Output_Rec    $global_Error_Nofound_NoKODI";;
+                    $global_Error_Okay_nr)              echo "$Output_Rec    $global_Error_Okay";;
+                    $global_Error_Exact_nr)             echo "$Output_Rec    $global_Error_Exact; $OpenSubtitlesRemaining remaining downloads";;
+                    $global_Error_Non_specific_nr)      echo "$Output_Rec    $global_Error_Non_specific (${global_found_Release}) downloaded; $OpenSubtitlesRemaining remaining downloads";;
+                    $global_Error_Renamed_nr)           echo "$Output_Rec    $global_Error_Renamed";;
+                    $global_Error_Searched_in_OS_Not_found_nr) echo "$Output_Rec    $global_Error_Searched_in_OS_Not_found";;
+                    $global_Error_Nofound_no_OS_nr)     echo "$Output_Rec    $global_Error_Nofound_no_OS";;
+                    $global_Error_DownloadFail_nr)      echo "$Output_Rec    $global_Error_DownloadFail";;
+                    $global_Error_Nofound_NoKODI_nr)    echo "$Output_Rec    $global_Error_Nofound_NoKODI";;
                     *) echo "$Output_Rec    ==========> Error occurred" ;;
                 esac
             else
@@ -209,7 +223,7 @@ function MissingSubtitle {
         fi
         GetTVSHOWINF_From_KodiDB "$TVShowMaskedName" "$TVShowName"
         Result=$?
-        if [ "$Result" != "0" ]; then
+        if [ "$Result" != "$global_Error_Okay_nr" ]; then
             global_TVShow_TMDB_ID_Found="FALSE";
             return "$Result"
         else
@@ -274,9 +288,9 @@ if [ -n "$global_DEBUG" ]; then
 
 
     if [ -z "$global_TVShow_TMDB_ID" ]; then
-        return 16
+        return $global_Error_Nofound_NoKODI_NR
     fi
-    return 0
+    return $global_Error_Okay_nr
 }
 
 function DoOpenSubtitles() {
@@ -294,7 +308,7 @@ function DoOpenSubtitles() {
         DownloadSubtitle  "${TV_Show%.*}" ${global_File_ID} "${Filename_No_Ext}" ""
         return $?
     else
-        return 8
+        return $global_Error_Searched_in_OS_Not_found_nr
     fi
 } 
 
@@ -392,8 +406,8 @@ function DownloadSubtitle {
 
      if [[ "$global_Authentication_Done" == "" ]]; then
          if [[ "$Again" != "" ]]; then
-            echo "Could not get an Authentication token fromm Opensubtitles; aborting"
-            exit 9
+            echo "Could not get an Authentication token from Opensubtitles; aborting"
+            exit $global_Error_Nofound_no_OS_nr
         fi 
         Get_AUTH_Token
         DownloadSubtitle  "${TV_Show%.*}" ${global_File_ID} "${Filename_No_Ext}" "TRUE"  # re-execute my self again, now hopefully with auth-token 
@@ -447,19 +461,34 @@ function DownloadSubtitle {
             $(touch "${global_SRT_Path}/${Filename_No_Ext}.srt")
             #echo "Downloaded $SubtitleDownloadfile_name and saved as ${global_SRT_Path}/${Filename_No_Ext}.srt"
             if [ "$Matched" == "true" ]; then
-                return 1                            # signal Exact match was downloaded
+                return $global_Error_Exact_nr           # signal Exact match was downloaded
             else
-                return 2                            # signal subtitle was downloaded, but no exact match
+                return $global_Error_Non_specific_nr    # signal subtitle was downloaded, but no exact match
             fi
         else
-            return 10
+            return $global_Error_DownloadFail_nr
         fi 
     else
         echo "******************** Could not get download-url from OpenSubtitles $Result"
         sleep 20s
-        return 8
+        return $global_Error_Searched_in_OS_Not_found_nr
     fi
 }
+
+function  DetermineTVShowname {
+    local lastpartOfPath
+    lastpartOfPathlastDir=$(echo "$global_TVShowName" | grep -Eo '[^/]+/?$' | cut -d / -f1)
+    if [[ $lastpartOfPathlastDir =~ [sS]([0-9]{1,2}) ]]; then # are we somewhere in a season directory? Then we need to go up thew path.
+        global_TVShowName=$(echo "$global_TVShowName" |sed -e "s/\/[^\/]*$//")
+        DetermineTVShowname
+        return
+    fi
+    global_TVShowName=$lastpartOfPathlastDir
+    return
+
+
+}
+
 
 function CheckEnvironmentSetup {
 
@@ -469,6 +498,7 @@ function CheckEnvironmentSetup {
     fi  
 
     global_InputParm=""
+                echo "Starting with global_TVShowName: $global_TVShowName $#"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -492,6 +522,9 @@ function CheckEnvironmentSetup {
             *)
                 # a value that is unknown in this case, will automatically be used as the directoryname cintaining our TVShow.
                 global_InputParm="$*"
+                global_TVShowName=$global_InputParm
+                echo "Setting global_TVShowName: $global_TVShowName"
+
                 # Break loop
                 break
                 ;;
@@ -519,5 +552,5 @@ CheckEnvironmentSetup $@
 if [ -n "$global_DEBUG" ]; then
     echo "<><><><> global_DEBUG Calling Main $@"
 fi  
+DetermineTVShowname
 Main    # execute main loop
-

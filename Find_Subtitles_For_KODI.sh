@@ -498,7 +498,12 @@ function CheckEnvironmentSetup {
     fi  
 
     global_InputParm=""
-                echo "Starting with global_TVShowName: $global_TVShowName $#"
+
+    if [ ! -d "${global_SRT_Path}" ]; then
+        echo "Subtitles directory (${global_SRT_Path}) does not exist. program aborted"
+        exit 16
+    fi
+    
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -523,8 +528,6 @@ function CheckEnvironmentSetup {
                 # a value that is unknown in this case, will automatically be used as the directoryname cintaining our TVShow.
                 global_InputParm="$*"
                 global_TVShowName=$global_InputParm
-                echo "Setting global_TVShowName: $global_TVShowName"
-
                 # Break loop
                 break
                 ;;

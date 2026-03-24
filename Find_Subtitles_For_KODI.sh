@@ -195,7 +195,7 @@ function Main {
                     $global_Error_Nofound_no_OS_nr)     echo "$Output_Rec    $global_Error_Nofound_no_OS";;
                     $global_Error_DownloadFail_nr)      echo "$Output_Rec    $global_Error_DownloadFail";;
                     $global_Error_Nofound_NoKODI_nr)    echo "$Output_Rec    $global_Error_Nofound_NoKODI";;
-                    *) echo "$Output_Rec    ==========> Error occurred" ;;
+                    *) echo "$Output_Rec    ==========> Error occurred ${Result}" ;;
                 esac
             else
                 echo "Cannot establish Season Info for: $Filename"
@@ -266,15 +266,17 @@ function GetTVSHOWINF_From_KodiDB() {
     local JSON_String
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB"
-        echo "<><><><> global_DEBUG" $global_mysql_command -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" --connect-timeout=15 "$DB_NAME" -N -s -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;"
+        echo "<><><><> global_DEBUG" $global_mysql_command --defaults-file=~/.my.conf -N -s -e "\"SELECT c00, c10 FROM tvshow WHERE c00 = 'rebecka martinsson' LIMIT 1;\""
     fi  
 
-    IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $($global_mysql_command --defaults-file=~/.my.conf -N -s -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
+    #IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $($global_mysql_command --defaults-file=~/.my.conf -s -N  -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
+    RESULT=$($global_mysql_command --defaults-extra-file=~/.my.conf -s -N -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
     if [ $? -ne 0 ]; then
         echo "Error connecting to the database."
         exit 4
     fi
-
+    IFS=$'\t' read -r SHOW_NAME SHOW_DESC <<< "$RESULT"echo "SHOW_NAME: $SHOW_NAME"
+    
     JSON_String=$(echo "$SHOW_DESC" | sed -e 's/<episodeguide>//g' -e 's/<\/episodeguide>//g')
     #TVDB=$(echo "$JSON_String" | jq -r '.tvdb')
     #IMDB=$(echo "$JSON_String" | jq -r '.imdb')

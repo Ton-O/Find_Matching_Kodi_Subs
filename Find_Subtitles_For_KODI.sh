@@ -125,6 +125,7 @@ function Main {
     local Filename
     local Ext
     local Filename_No_Ext
+    local Filename_Masked_No_Ext
     local Stripped_Path
     local TV_Show
     local Cached_SRT_files
@@ -145,7 +146,7 @@ function Main {
     # Get the name of the TV SHow from the map name = removed; done now in its own function
     Stripped_Path="${Target_Dir%/}"
     TV_Show=$global_TVShowName
-    #TV_Show=$(basename "$Stripped_Path")
+    TV_Show_masked=$(echo "$TV_Show"| sed 's/[^[:alnum:]]/*/g' )
     Cached_SRT_files=""                                  # empty temporary cache of SRT-files as we have a new directory. 
 
 
@@ -174,7 +175,7 @@ function Main {
                 read global_Season global_Episode <<< "$global_Season_Info"
 
                 Output_Rec="$TV_Show - Episode S${global_Season}E${global_Episode}"
-                get_srt "$TV_Show" "$global_Season" "$global_Episode" "$Filename_No_Ext"
+                get_srt "$TV_Show_masked" "$global_Season" "$global_Episode" "$Filename_No_Ext"
                 Result=$?
 
                 if [ "$Result" == "$global_Error_Searched_in_OS_Not_found_nr" ]; then   # No subtitle found

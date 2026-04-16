@@ -155,7 +155,8 @@ function Main {
     fi    
 
     # find all files in directory
-    find "$Target_Dir" -type f | while read -r File_Path; do
+    find "$Target_Dir" -type f | sort | while read File_Path; do
+    # find "$Target_Dir" -type f | while read -r File_Path; do
         Filename=$(basename "$File_Path")
         Ext="${Filename##*.}"
         Filename_No_Ext="${Filename%.*}"
@@ -220,7 +221,8 @@ function MissingSubtitle {
     if [ -z "$global_TVShow_TMDB_ID_Found" ]; then                              # An empty global_TVShow_TMDB_ID_Found will only occur the first time we're here; use to initialize 
         my_mysql_command=$(whereis $global_mysql_command)                       # if called by others, $PATH may not be filled by .bashrc file; guess where mysql is
         if [ "$my_mysql_command" == "mysql:" ]; then
-            global_mysql_command="/usr/local/opt/mysql-client/bin/mysql "
+            # global_mysql_command="/usr/local/opt/mysql-client/bin/mysql"              #brew on an Intem Mac
+            global_mysql_command="/opt/homebrew/Cellar/mysql-client/9.6.0/bin/mysql"    # brew on an Mx MAC
         fi
         GetTVSHOWINF_From_KodiDB "$TVShowMaskedName" "$TVShowName"
         Result=$?

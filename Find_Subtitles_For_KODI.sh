@@ -12,7 +12,6 @@ global_Authentication_Done=""                                        # start wit
 global_OpenSubtitlesUser=
 global_OpenSubtitlesPasswd=
 global_Season_Info=
-global_mysql_command=mysql
 
 global_Season=
 global_Episode=
@@ -40,7 +39,7 @@ global_Error_Nofound_no_OS_nr=9
 global_Error_Nofound_no_OS="========> No SRT found and cannot access OpenSubtitles (no global_OpenSubtitlesUser or OpenSubtitlesPasswd given)"
 global_Error_DownloadFail_nr=10 
 global_Error_DownloadFail="========> SRT found, but download from OpenSubitles failed; retry this download later"
-global_Error_Nofound_NoKODI_NR=16
+global_Error_Nofound_NoKODI_nr=16
 global_Error_Nofound_NoKODI="=> No subtitle available already and KODI doesn't recognise path $TV_Show as a TV-show"
 
 if [ "$1" == "TRACE" ]; then
@@ -187,7 +186,6 @@ function Main {
                         Result=$global_Error_Nofound_no_OS_nr
                     fi
                 fi
-
                 case $Result in
                     $global_Error_Okay_nr)              echo "$Output_Rec    $global_Error_Okay";;
                     $global_Error_Exact_nr)             echo "$Output_Rec    $global_Error_Exact; $OpenSubtitlesRemaining remaining downloads";;
@@ -219,11 +217,21 @@ function MissingSubtitle {
     TVShowName=$(echo "$TV_Show" |tr '[:upper:]' '[:lower:]')
     TVShowMaskedName=$(echo "$TVShowName" | sed 's/[^[:alnum:]]/+/g' )
     if [ -z "$global_TVShow_TMDB_ID_Found" ]; then                              # An empty global_TVShow_TMDB_ID_Found will only occur the first time we're here; use to initialize 
-        my_mysql_command=$(whereis $global_mysql_command)                       # if called by others, $PATH may not be filled by .bashrc file; guess where mysql is
-        if [ "$my_mysql_command" == "mysql:" ]; then
-            # global_mysql_command="/usr/local/opt/mysql-client/bin/mysql"              #brew on an Intem Mac
-            global_mysql_command="/opt/homebrew/Cellar/mysql-client/9.6.0/bin/mysql"    # brew on an Mx MAC
+
+        if ! command -v mysql >/dev/null 2>&1; then
+        # Alleen als we op een Mac zitten en brew hebben, proberen we het brew-pad
+        if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
+                BREW_MYSQL_PATH="$(brew --prefix mysql-client 2>/dev/null)/bin"
+                export PATH="$BREW_MYSQL_PATH:$PATH"
+            fi
         fi
+
+        # Controleer nu definitief
+        if ! command -v mysql >/dev/null 2>&1; then
+            echo "Fout: mysql-client is niet geïnstalleerd of niet vindbaar."
+            exit 1
+        fi
+
         GetTVSHOWINF_From_KodiDB "$TVShowMaskedName" "$TVShowName"
         Result=$?
         if [ "$Result" != "$global_Error_Okay_nr" ]; then
@@ -238,7 +246,7 @@ function MissingSubtitle {
         DoOpenSubtitles "$TV_Show" "$TVShowMaskedName" "$global_Season" "$global_Episode" "$Filename_No_Ext"
         return $?
     else
-        return $global_Error_Nofound_NoKODI_NR
+        return $global_Error_Nofound_NoKODI_nr
     fi
 
 }
@@ -269,16 +277,18 @@ function GetTVSHOWINF_From_KodiDB() {
     local JSON_String
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB"
-        echo "<><><><> global_DEBUG" $global_mysql_command --defaults-file=~/.my.conf -N -s -e "\"SELECT c00, c10 FROM tvshow WHERE c00 = 'rebecka martinsson' LIMIT 1;\""
+        echo "<><><><> global_DEBUG" mysql --defaults-file=~/.my.conf -N -s -e "\"SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;\""
     fi  
 
-    #IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $($global_mysql_command --defaults-file=~/.my.conf -s -N  -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
-    RESULT=$($global_mysql_command --defaults-extra-file=~/.my.conf -s -N -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
+    #IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $(mysql --defaults-file=~/.my.conf -s -N  -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
+    RESULT=$(mysql --defaults-extra-file=~/.my.conf -s -N -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
     if [ $? -ne 0 ]; then
         echo "Error connecting to the database."
         exit 4
     fi
-    IFS=$'\t' read -r SHOW_NAME SHOW_DESC <<< "$RESULT"echo "SHOW_NAME: $SHOW_NAME"
+    echo RESULT
+    echo $RESULT
+    IFS=$'\t' read -r SHOW_NAME SHOW_DESC <<< "$RESULT" 
     
     JSON_String=$(echo "$SHOW_DESC" | sed -e 's/<episodeguide>//g' -e 's/<\/episodeguide>//g')
     #TVDB=$(echo "$JSON_String" | jq -r '.tvdb')
@@ -293,7 +303,7 @@ if [ -n "$global_DEBUG" ]; then
 
 
     if [ -z "$global_TVShow_TMDB_ID" ]; then
-        return $global_Error_Nofound_NoKODI_NR
+        return $global_Error_Nofound_NoKODI_nr
     fi
     return $global_Error_Okay_nr
 }

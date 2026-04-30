@@ -257,11 +257,22 @@ function find_season_info() {
     fi
 
     local filename=$(echo "$1" | tr '[:upper:]' '[:lower:]')
-    # Matcht s01e01, s1e1, s01x01, etc.
+    # Match s01e01, s1e1, s01x01, etc.
     global_Season_Info=""
-    if [[ $filename =~ s([0-9]{1,2})[ex\ ]{1,2}([0-9]{1,2}) ]]; then
-        # Normalise to 2 digits using printf
-        printf -v global_Season_Info "%02d %02d" "$((10#${BASH_REMATCH[1]}))" "$((10#${BASH_REMATCH[2]}))"
+    local s,e
+    if [[ $filename =~ (s?([0-9]{1,2})[ex]([0-9]{1,2}))|(([0-9]{2})[\. ]([0-9]{2})) ]]; then
+    
+        if [[ -n ${BASH_REMATCH[2]} ]]; then
+            # Match gevonden in de eerste groep (met s/e/x)
+            s="${BASH_REMATCH[2]}"
+            e="${BASH_REMATCH[3]}"
+        else
+            # Match gevonden in de tweede groep (alleen cijfers met punt/spatie)
+            s="${BASH_REMATCH[5]}"
+            e="${BASH_REMATCH[6]}"
+        fi
+
+        printf -v global_Season_Info "%02d %02d" "$((10#$s))" "$((10#$e))"
     fi
 
 }
@@ -286,8 +297,6 @@ function GetTVSHOWINF_From_KodiDB() {
         echo "Error connecting to the database."
         exit 4
     fi
-    echo RESULT
-    echo $RESULT
     IFS=$'\t' read -r SHOW_NAME SHOW_DESC <<< "$RESULT" 
     
     JSON_String=$(echo "$SHOW_DESC" | sed -e 's/<episodeguide>//g' -e 's/<\/episodeguide>//g')

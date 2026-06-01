@@ -259,7 +259,8 @@ function find_season_info() {
     local filename=$(echo "$1" | tr '[:upper:]' '[:lower:]')
     # Match s01e01, s1e1, s01x01, etc.
     global_Season_Info=""
-    local s,e
+    local s
+    local e
     if [[ $filename =~ (s?([0-9]{1,2})[ex]([0-9]{1,2}))|(([0-9]{2})[\. ]([0-9]{2})) ]]; then
     
         if [[ -n ${BASH_REMATCH[2]} ]]; then
@@ -286,13 +287,15 @@ function GetTVSHOWINF_From_KodiDB() {
     local DB_PASS="kodi"
     local DB_NAME="MyVideos131"
     local JSON_String
+    ESCAPED_TVShow="${TVShow//\'/\\\'}"
+
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB"
-        echo "<><><><> global_DEBUG" mysql --defaults-file=~/.my.conf -N -s -e "\"SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;\""
+        echo "<><><><> global_DEBUG" mysql --defaults-file=~/.my.conf -N -s -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${ESCAPED_TVShow}' LIMIT 1;"
     fi  
 
-    #IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $(mysql --defaults-file=~/.my.conf -s -N  -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
-    RESULT=$(mysql --defaults-extra-file=~/.my.conf -s -N -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${TVShow}' LIMIT 1;")
+    #IFS=$'\t' read -r SHOW_NAME SHOW_DESC  <<< $(mysql --defaults-file=~/.my.conf -s -N  -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${ESCAPED_TVShow}' LIMIT 1;")    
+    RESULT=$(mysql --defaults-extra-file=~/.my.conf -s -N -e "SELECT c00, c10 FROM tvshow WHERE c00 = '${ESCAPED_TVShow}' LIMIT 1;")
     if [ $? -ne 0 ]; then
         echo "Error connecting to the database."
         exit 4

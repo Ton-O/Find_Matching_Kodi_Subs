@@ -135,14 +135,20 @@ function Main {
     local Low_Extension
     Target_Dir="${global_InputParm:-/Volumes/Media/Videos/Unforgotten/}"
 
+    if [  -f "$Target_Dir" ]; then
+        echo "Error: Input parm is a file, please pass a directory as argument, not a file"
+        echo "$Target_Dir"
+        exit 1
+    fi
     if [ ! -d "$Target_Dir" ]; then
-        echo "Fout: Map niet gevonden: $Target_Dir"
+        echo $?
+        echo "Error: directory could not be found: $Target_Dir"
         exit 1
     fi
 
     echo "Processing $Target_Dir for TVShow $global_TVShowName"
 
-    # Get the name of the TV SHow from the map name = removed; done now in its own function
+    # Get the name of the TV Show from the map name = removed; done now in its own function
     Stripped_Path="${Target_Dir%/}"
     TV_Show=$global_TVShowName
     TV_Show_masked=$(echo "$TV_Show"| sed 's/[^[:alnum:]]/*/g' )
@@ -180,7 +186,7 @@ function Main {
 
                 if [ "$Result" == "$global_Error_Searched_in_OS_Not_found_nr" ]; then   # No subtitle found
                     if [ "$OpenSubtitlesAuth" == "true" ]; then 
-                        MissingSubtitle "$TV_Show" "$global_Season" "$global_Episode" "$Filename_No_Ext"
+                        MissingSubtitle "$TV_Show" "$global_Season" "$global_Episode" "$Filename_No_Ext" "$Filename"
                     Result=$?
                     else
                         Result=$global_Error_Nofound_no_OS_nr
@@ -209,6 +215,7 @@ function MissingSubtitle {
     local global_Season="$2" 
     local global_Episode="$3" 
     local Filename_No_Ext="$4"
+    local Filename="$5"
     local Result
 
     if [ -n "$global_DEBUG" ]; then
@@ -219,20 +226,28 @@ function MissingSubtitle {
     if [ -z "$global_TVShow_TMDB_ID_Found" ]; then                              # An empty global_TVShow_TMDB_ID_Found will only occur the first time we're here; use to initialize 
 
         if ! command -v mysql >/dev/null 2>&1; then
-        # Alleen als we op een Mac zitten en brew hebben, proberen we het brew-pad
+        # Only running on MacOS, we try brew-=path
         if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
                 BREW_MYSQL_PATH="$(brew --prefix mysql-client 2>/dev/null)/bin"
                 export PATH="$BREW_MYSQL_PATH:$PATH"
             fi
         fi
 
-        # Controleer nu definitief
+        # Check finally if we can use ms-sql
         if ! command -v mysql >/dev/null 2>&1; then
-            echo "Fout: mysql-client is niet geïnstalleerd of niet vindbaar."
+            echo "Error: mysql-client is not installed or undetectable."
             exit 1
         fi
-
-        GetTVSHOWINF_From_KodiDB "$TVShowMaskedName" "$TVShowName"
+        ## Below, we have a new strategy: 
+        ## it's a two step approach
+        ## if a decent filename length is given, we try to lookup the TMDB-id by using the filename; kodi registers the same filename 
+        ## if not, we look it up based on the directory name; this is the old approach, but failed sometimes if strange chars are present in it
+        ##
+        if [ ${#Filename} -ge 11 ] ; then   ## long enough to get a specific entry via KODI-SQL?
+            GetTVSHOWINF_From_KodiDB_By_Filename "$TVShowMaskedName" "$TVShowName" "$Filename"
+        else
+            GetTVSHOWINF_From_KodiDB "$TVShowMaskedName" "$TVShowName"
+        fi
         Result=$?
         if [ "$Result" != "$global_Error_Okay_nr" ]; then
             global_TVShow_TMDB_ID_Found="FALSE";
@@ -278,6 +293,47 @@ function find_season_info() {
 
 }
 
+function GetTVSHOWINF_From_KodiDB_By_Filename() {
+    local TVShow="$2"
+    local Filename="$3"
+    local RC
+    local DB_HOST="192.168.73.24"  # these DB-values are now placed in ~/.my.conf
+    local DB_USER="kodi"
+    local DB_PASS="kodi"
+    local DB_NAME="MyVideos131"
+    local JSON_String
+    ESCAPED_TVShow="${TVShow//\'/\\\'}"
+
+    if [ -n "$global_DEBUG" ]; then
+        echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB_By_Filename"
+        echo "<><><><> global_DEBUG" mysql --defaults-file=~/.my.conf -N -s -e SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$Filename%';"
+    fi  
+
+
+     RESULT=$(mysql --defaults-extra-file=~/.my.conf -s -N -e  "SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$Filename%';")
+    if [ $? -ne 0 ]; then
+        echo "Error connecting to the database."
+        exit 4
+    fi
+    IFS=$'\t' read -r SHOW_NAME SHOW_DESC <<< "$RESULT" 
+    
+    JSON_String=$(echo "$SHOW_DESC" | sed -e 's/<episodeguide>//g' -e 's/<\/episodeguide>//g')
+    #TVDB=$(echo "$JSON_String" | jq -r '.tvdb')
+    #IMDB=$(echo "$JSON_String" | jq -r '.imdb')
+    global_TVShow_TMDB_ID=$(echo "$JSON_String" | jq -r '.tmdb')
+
+
+if [ -n "$global_DEBUG" ]; then
+        echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB  Result KODI-sql: $JSON_String"
+        echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB  TMDB is now: $global_TVShow_TMDB_ID"
+    fi
+
+
+    if [ -z "$global_TVShow_TMDB_ID" ]; then
+        return $global_Error_Nofound_NoKODI_nr
+    fi
+    return $global_Error_Okay_nr
+}
 
 function GetTVSHOWINF_From_KodiDB() {
     local TVShow="$2"
@@ -506,7 +562,12 @@ function  DetermineTVShowname {
     local lastpartOfPath
     lastpartOfPathlastDir=$(echo "$global_TVShowName" | grep -Eo '[^/]+/?$' | cut -d / -f1)
     if [[ $lastpartOfPathlastDir =~ [sS]([0-9]{1,2}) ]]; then # are we somewhere in a season directory? Then we need to go up thew path.
+        if [ -n "$global_DEBUG" ]; then
+            echo "<><><><> global_DEBUG DetermineTVShowname going up to parent-dir $@"
+        fi  
         global_TVShowName=$(echo "$global_TVShowName" |sed -e "s/\/[^\/]*$//")
+        echo "<><><><> global_DEBUG DetermineTVShowname going up to parent-dir $global_TVShowName $@"
+
         DetermineTVShowname
         return
     fi

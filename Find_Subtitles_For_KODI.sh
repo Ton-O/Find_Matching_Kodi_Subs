@@ -306,7 +306,7 @@ function GetTVSHOWINF_From_KodiDB_By_Filename() {
 
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB_By_Filename"
-        echo "<><><><> global_DEBUG" mysql --defaults-file=~/.my.conf -N -s -e SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$Filename%';"
+        echo "<><><><> global_DEBUG mysql --defaults-file=~/.my.conf -N -s -e SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$Filename%';"
     fi  
 
 

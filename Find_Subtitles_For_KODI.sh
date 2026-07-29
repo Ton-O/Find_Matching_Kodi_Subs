@@ -297,7 +297,7 @@ function GetTVSHOWINF_From_KodiDB_By_Filename() {
     local TVShow="$2"
     local Filename="$3"
     local RC
-    local DB_HOST="192.168.73.24"  # these DB-values are now placed in ~/.my.conf
+    local DB_HOST="192.168.73.22"  # these DB-values are now placed in ~/.my.conf
     local DB_USER="kodi"
     local DB_PASS="kodi"
     local DB_NAME="MyVideos131"
@@ -338,7 +338,7 @@ if [ -n "$global_DEBUG" ]; then
 function GetTVSHOWINF_From_KodiDB() {
     local TVShow="$2"
     local RC
-    local DB_HOST="192.168.73.24"  # these DB-values are now placed in ~/.my.conf
+    local DB_HOST="192.168.73.22"  # these DB-values are now placed in ~/.my.conf
     local DB_USER="kodi"
     local DB_PASS="kodi"
     local DB_NAME="MyVideos131"

@@ -39,8 +39,13 @@ global_Error_Nofound_no_OS_nr=9
 global_Error_Nofound_no_OS="========> No SRT found and cannot access OpenSubtitles (no global_OpenSubtitlesUser or OpenSubtitlesPasswd given)"
 global_Error_DownloadFail_nr=10 
 global_Error_DownloadFail="========> SRT found, but download from OpenSubitles failed; retry this download later"
+global_Error_Nofound_NoKODI_TMDBID_nr=15
+global_Error_Nofound_NoKODI_TMDBID="=> KODI Doesn;t show a TMDBId; cannot query OpenSubtitles"
 global_Error_Nofound_NoKODI_nr=16
 global_Error_Nofound_NoKODI="=> No subtitle available already and KODI doesn't recognise path $TV_Show as a TV-show"
+global_Error_Nofound_NoKODI_By_Filename_nr=17
+global_Error_Nofound_NoKODI_By_Filename="=> No subtitle available already and KODI doesn't recognise filename $TV_Show as a TV-show"
+
 
 if [ "$1" == "TRACE" ]; then
     echo "<><><><> TRACE Starting PGM"
@@ -193,14 +198,16 @@ function Main {
                     fi
                 fi
                 case $Result in
-                    $global_Error_Okay_nr)              echo "$Output_Rec    $global_Error_Okay";;
-                    $global_Error_Exact_nr)             echo "$Output_Rec    $global_Error_Exact; $OpenSubtitlesRemaining remaining downloads";;
-                    $global_Error_Non_specific_nr)      echo "$Output_Rec    $global_Error_Non_specific (${global_found_Release}) downloaded; $OpenSubtitlesRemaining remaining downloads";;
-                    $global_Error_Renamed_nr)           echo "$Output_Rec    $global_Error_Renamed";;
+                    $global_Error_Okay_nr)                     echo "$Output_Rec    $global_Error_Okay";;
+                    $global_Error_Exact_nr)                    echo "$Output_Rec    $global_Error_Exact; $OpenSubtitlesRemaining remaining downloads";;
+                    $global_Error_Non_specific_nr)             echo "$Output_Rec    $global_Error_Non_specific (${global_found_Release}) downloaded; $OpenSubtitlesRemaining remaining downloads";;
+                    $global_Error_Renamed_nr)                  echo "$Output_Rec    $global_Error_Renamed";;
                     $global_Error_Searched_in_OS_Not_found_nr) echo "$Output_Rec    $global_Error_Searched_in_OS_Not_found";;
-                    $global_Error_Nofound_no_OS_nr)     echo "$Output_Rec    $global_Error_Nofound_no_OS";;
-                    $global_Error_DownloadFail_nr)      echo "$Output_Rec    $global_Error_DownloadFail";;
-                    $global_Error_Nofound_NoKODI_nr)    echo "$Output_Rec    $global_Error_Nofound_NoKODI";;
+                    $global_Error_Nofound_no_OS_nr)            echo "$Output_Rec    $global_Error_Nofound_no_OS";;
+                    $global_Error_DownloadFail_nr)             echo "$Output_Rec    $global_Error_DownloadFail";;
+                    $global_Error_Nofound_NoKODI_TMDBID_nr)    echo "$Output_Rec    $global_Error_Nofound_NoKODI_TMDBID_nr";;
+                    $global_Error_Nofound_NoKODI_nr)           echo "$Output_Rec    $global_Error_Nofound_NoKODI";;
+                    $global_Error_Nofound_NoKODI_By_Filename_nr) echo "$Output_Rec    $global_Error_Nofound_NoKODI_By_Filename";;
                     *) echo "$Output_Rec    ==========> Error occurred ${Result}" ;;
                 esac
             else
@@ -229,6 +236,7 @@ function MissingSubtitle {
         # Only running on MacOS, we try brew-=path
         if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
                 BREW_MYSQL_PATH="$(brew --prefix mysql-client 2>/dev/null)/bin"
+                echo "Running MacOS with brewed mysql, adjusting PATH variable with $BREW_MYSQL_PATH"
                 export PATH="$BREW_MYSQL_PATH:$PATH"
             fi
         fi
@@ -297,20 +305,19 @@ function GetTVSHOWINF_From_KodiDB_By_Filename() {
     local TVShow="$2"
     local Filename="$3"
     local RC
-    local DB_HOST="192.168.73.22"  # these DB-values are now placed in ~/.my.conf
-    local DB_USER="kodi"
-    local DB_PASS="kodi"
-    local DB_NAME="MyVideos131"
+    #local DB_HOST="192.168.73.22"  # these DB-values are now placed in ~/.my.conf
+    #local DB_USER="kodi"
+    #local DB_PASS="kodi"
+    #local DB_NAME="MyVideos131"
     local JSON_String
-    ESCAPED_TVShow="${TVShow//\'/\\\'}"
-
+    ESCAPED_Filename="${Filename//\'/\\\'}"
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB_By_Filename"
-        echo "<><><><> global_DEBUG mysql --defaults-file=~/.my.conf -N -s -e SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$Filename%';"
+        echo "<><><><> global_DEBUG mysql --defaults-file=~/.my.conf -N -s -e SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$ESCAPED_Filename%';"
     fi  
 
 
-     RESULT=$(mysql --defaults-extra-file=~/.my.conf -s -N -e  "SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$Filename%';")
+     RESULT=$(mysql --defaults-extra-file=~/.my.conf -s -N -e  "SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$ESCAPED_Filename%';")
     if [ $? -ne 0 ]; then
         echo "Error connecting to the database."
         exit 4
@@ -330,7 +337,7 @@ if [ -n "$global_DEBUG" ]; then
 
 
     if [ -z "$global_TVShow_TMDB_ID" ]; then
-        return $global_Error_Nofound_NoKODI_nr
+        return $global_Error_Nofound_NoKODI_By_Filename_nr
     fi
     return $global_Error_Okay_nr
 }
@@ -338,10 +345,10 @@ if [ -n "$global_DEBUG" ]; then
 function GetTVSHOWINF_From_KodiDB() {
     local TVShow="$2"
     local RC
-    local DB_HOST="192.168.73.22"  # these DB-values are now placed in ~/.my.conf
-    local DB_USER="kodi"
-    local DB_PASS="kodi"
-    local DB_NAME="MyVideos131"
+    #local DB_HOST="192.168.73.22"  # these DB-values are now placed in ~/.my.conf
+    #local DB_USER="kodi"
+    #local DB_PASS="kodi"
+    #local DB_NAME="MyVideos131"
     local JSON_String
     ESCAPED_TVShow="${TVShow//\'/\\\'}"
 
@@ -371,6 +378,7 @@ if [ -n "$global_DEBUG" ]; then
 
 
     if [ -z "$global_TVShow_TMDB_ID" ]; then
+        
         return $global_Error_Nofound_NoKODI_nr
     fi
     return $global_Error_Okay_nr

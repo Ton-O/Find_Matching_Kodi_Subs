@@ -313,22 +313,52 @@ function GetTVSHOWINF_From_KodiDB_By_Filename() {
     ESCAPED_Filename="${Filename//\'/\\\'}"
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB_By_Filename"
-        echo "<><><><> global_DEBUG mysql --defaults-file=~/.my.conf -N -s -e SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$ESCAPED_Filename%';"
+        echo "<><><><> global_DEBUG mysql --defaults-file=~/.my.conf --default-character-set=utf8mb4 -N -s -e SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName COLLATE utf8mb3_unicode_ci LIKE '$ESCAPED_Filename%';"
     fi  
 
+# Recover macOS diakritics coding (NFD -> NFC)
+CLEAN_FILENAME=$(echo -n "$ESCAPED_Filename" | iconv -f UTF-8-MAC -t UTF-8)
 
-     RESULT=$(mysql --defaults-extra-file=~/.my.conf -s -N -e  "SELECT t.c00,t.c10 FROM files f JOIN path p ON f.idPath = p.idPath JOIN episode e ON f.idFile = e.idFile JOIN tvshow t ON e.idShow = t.idShow WHERE f.strFileName LIKE '$ESCAPED_Filename%';")
-    if [ $? -ne 0 ]; then
-        echo "Error connecting to the database."
-        exit 4
-    fi
-    IFS=$'\t' read -r SHOW_NAME SHOW_DESC <<< "$RESULT" 
-    
-    JSON_String=$(echo "$SHOW_DESC" | sed -e 's/<episodeguide>//g' -e 's/<\/episodeguide>//g')
-    #TVDB=$(echo "$JSON_String" | jq -r '.tvdb')
-    #IMDB=$(echo "$JSON_String" | jq -r '.imdb')
-    global_TVShow_TMDB_ID=$(echo "$JSON_String" | jq -r '.tmdb')
+# Execute SQL with options  -N (nmo headers) and -B (batch/tab mode)
+RESULT=$(mysql --defaults-file=~/.my.conf --default-character-set=utf8mb4 -N -B -e "
+SELECT t.c00, t.c10 
+FROM files f 
+JOIN path p ON f.idPath = p.idPath 
+JOIN episode e ON f.idFile = e.idFile 
+JOIN tvshow t ON e.idShow = t.idShow 
+WHERE f.strFileName COLLATE utf8mb3_unicode_ci LIKE '${CLEAN_FILENAME}%';")
 
+if [ $? -ne 0 ]; then
+    echo "Error connecting to the database."
+    exit 4
+fi
+
+# Check result and see if any records were returned
+if [ -z "$RESULT" ]; then
+    echo "Fout: Query leverde 0 resultaten op in Bash."
+    exit 5
+fi
+
+# Split columns by means ofd TAB-delimiter
+IFS=$'\t' read -r SHOW_NAME SHOW_DESC <<< "$RESULT"
+
+# Trim content
+SHOW_NAME=$(echo "$SHOW_NAME" | xargs)
+SHOW_DESC=$(echo "$SHOW_DESC" | xargs)
+
+if [ -n "$global_DEBUG" ]; then
+    echo "Show found: $SHOW_NAME"
+    echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB Result KODI-sql: $SHOW_DESC"
+fi
+
+# Stip XML-0tags that Kodi uses
+JSON_String=$(echo "$SHOW_DESC" | sed -e 's/<episodeguide>//g' -e 's/<\/episodeguide>//g')
+
+# Creat a vcalid JSON-obnjec t
+VALID_JSON=$(echo "$JSON_String" | sed -E 's/([a-zA-Z0-9_]+):/ "\1":/g' | sed -E 's/:[[:space:]]*(tt[0-9]+)/: "\1"/g')
+
+# Finally extract TMDB_ID
+global_TVShow_TMDB_ID=$(echo "$VALID_JSON" | jq -r '.tmdb')
 
 if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG GetTVSHOWINF_From_KodiDB  Result KODI-sql: $JSON_String"

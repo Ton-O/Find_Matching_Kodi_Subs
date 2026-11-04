@@ -336,7 +336,6 @@ fi
 # Check result and see if any records were returned
 if [ -z "$RESULT" ]; then
     echo "Fout: Query leverde 0 resultaten op in Bash."
-    exit 5
 fi
 
 # Split columns by means ofd TAB-delimiter

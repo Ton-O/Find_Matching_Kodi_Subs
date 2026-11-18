@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# call this script as fllows:
+#    
 global_DEBUG=
 global_TRACE=
 
@@ -35,15 +36,19 @@ global_Error_Renamed_nr=4
 global_Error_Renamed="==> Srt renamed"
 global_Error_Searched_in_OS_Not_found_nr=8
 global_Error_Searched_in_OS_Not_found="========> Search OpenSubtitles for SRT but not found"
-global_Error_Nofound_no_OS_nr=9
+global_Error_Searched_in_OS_Alternative_Lang_found_nr=9
+global_Error_Searched_in_OS_Alternative_Lang_found="========> SRT found, but only alternative language; not downloaded"
+
+global_Error_Nofound_no_OS_nr=12
 global_Error_Nofound_no_OS="========> No SRT found and cannot access OpenSubtitles (no global_OpenSubtitlesUser or OpenSubtitlesPasswd given)"
-global_Error_DownloadFail_nr=10 
+global_Error_DownloadFail_nr=14
 global_Error_DownloadFail="========> SRT found, but download from OpenSubitles failed; retry this download later"
-global_Error_Nofound_NoKODI_TMDBID_nr=15
+
+global_Error_Nofound_NoKODI_TMDBID_nr=16
 global_Error_Nofound_NoKODI_TMDBID="=> KODI Doesn;t show a TMDBId; cannot query OpenSubtitles"
-global_Error_Nofound_NoKODI_nr=16
+global_Error_Nofound_NoKODI_nr=18
 global_Error_Nofound_NoKODI="=> No subtitle available already and KODI doesn't recognise path $TV_Show as a TV-show"
-global_Error_Nofound_NoKODI_By_Filename_nr=17
+global_Error_Nofound_NoKODI_By_Filename_nr=20
 global_Error_Nofound_NoKODI_By_Filename="=> No subtitle available already and KODI doesn't recognise filename $TV_Show as a TV-show"
 
 
@@ -203,6 +208,7 @@ function Main {
                     $global_Error_Non_specific_nr)             echo "$Output_Rec    $global_Error_Non_specific (${global_found_Release}) downloaded; $OpenSubtitlesRemaining remaining downloads";;
                     $global_Error_Renamed_nr)                  echo "$Output_Rec    $global_Error_Renamed";;
                     $global_Error_Searched_in_OS_Not_found_nr) echo "$Output_Rec    $global_Error_Searched_in_OS_Not_found";;
+                    $global_Error_Searched_in_OS_Alternative_Lang_found_nr) echo "$Output_Rec    $global_Error_Searched_in_OS_Alternative_Lang_found";;
                     $global_Error_Nofound_no_OS_nr)            echo "$Output_Rec    $global_Error_Nofound_no_OS";;
                     $global_Error_DownloadFail_nr)             echo "$Output_Rec    $global_Error_DownloadFail";;
                     $global_Error_Nofound_NoKODI_TMDBID_nr)    echo "$Output_Rec    $global_Error_Nofound_NoKODI_TMDBID_nr";;
@@ -422,12 +428,22 @@ function DoOpenSubtitles() {
     if [ -n "$global_DEBUG" ]; then
         echo "<><><><> global_DEBUG DoOpenSubtitles"
     fi  
+    local preferredLanguage=true
+    for searchLanguage in "nl" "en"; do
+        SearchOpenSubtitles "$Filename_No_Ext" $global_Season $global_Episode "${TVShowMaskedName}" "$searchLanguage"
+        if [[ "$global_File_ID" != "-1" ]]; then 
+           break
+        fi
+        preferredLanguage=false
+    done 
 
-    SearchOpenSubtitles "$Filename_No_Ext" $global_Season $global_Episode "${TVShowMaskedName}"
     if [[ "$global_File_ID" != "-1" ]]; then  
-        DownloadSubtitle  "${TV_Show%.*}" ${global_File_ID} "${Filename_No_Ext}" ""
-        return $?
-    else
+        if [[ preferredLanguage == true ]]; then
+            DownloadSubtitle  "${TV_Show%.*}" ${global_File_ID} "${Filename_No_Ext}" ""
+            return $?
+        else
+            return $global_Error_Searched_in_OS_Alternative_Lang_found_nr
+        fi
         return $global_Error_Searched_in_OS_Not_found_nr
     fi
 } 
@@ -464,6 +480,7 @@ function SearchOpenSubtitles() {
     local global_Season="$2"
     local global_Episode="$3"
     local TVShow="$4"
+    local search_Language="$5"
     local OpenSubtitles_Release
     local Read_File_ID
     local Read_Filename
@@ -480,10 +497,10 @@ function SearchOpenSubtitles() {
     global_File_ID=-1
     Searching_Release="${Filename##*[-_. ]}" 
 
-    OpenSubtitles=$(curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=nl&machine_translated=include&parent_tmdb_id=${global_TVShow_TMDB_ID}&season_number=${global_Season}")
+    OpenSubtitles=$(curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=${search_Language}&machine_translated=include&parent_tmdb_id=${global_TVShow_TMDB_ID}&season_number=${global_Season}")
 
     if [ -n "$global_DEBUG" ]; then
-        echo "<><><><> global_DEBUG SearchOpenSubtitles:" curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=nl&machine_translated=include&parent_tmdb_id=${global_TVShow_TMDB_ID}&season_number=${global_Season}"
+        echo "<><><><> global_DEBUG SearchOpenSubtitles:" curl -s -X GET -H "Api-Key:${global_API_Key}" -H "User-agent: ${global_User_Agent}" -H "Accept:application/json"  "https://api.opensubtitles.com/api/v1/subtitles?episode_number=${global_Episode}&languages=${search_Language}&machine_translated=include&parent_tmdb_id=${global_TVShow_TMDB_ID}&season_number=${global_Season}"
         echo "<><><><> global_DEBUG SearchOpenSubtitles curl done: $OpenSubtitles"
     fi      
 
@@ -642,11 +659,11 @@ function CheckEnvironmentSetup {
                 ;;
             DEBUG=*)
                 # Check of de waarde true is
-                [[ "${1#*=}" == "true" ]] && global_DEBUG=="TRUE"
+                [[ "${1#*=}" == "true" || "${1#*=}" == "on" ]] && global_DEBUG=="TRUE"
                 shift
                 ;;
             TRACE=*)
-                [[ "${1#*=}" == "true" ]] && global_TRACE=="TRUE"
+                [[ "${1#*=}" == "true" || "${1#*=}" == "on" ]] && global_TRACE=="TRUE"
                 shift
                 ;;
             *)
